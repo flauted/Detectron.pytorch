@@ -31,33 +31,65 @@ import numpy as np
 import pycocotools.mask as mask_util
 
 
-def flip_segms(segms, height, width):
+def _flip_poly_horz(poly, width):
+  flipped_poly = np.array(poly)
+  flipped_poly[0::2] = width - np.array(poly[0::2]) - 1
+  return flipped_poly.tolist()
+
+
+def _flip_rle_horz(rle, height, width):
+  if 'counts' in rle and type(rle['counts']) == list:
+    # Magic RLE format handling painfully discovered by looking at the
+    # COCO API showAnns function.
+    rle = mask_util.frPyObjects([rle], height, width)
+  mask = mask_util.decode(rle)
+  mask = mask[:, ::-1, :]
+  rle = mask_util.encode(np.array(mask, order='F', dtype=np.uint8))
+  return rle
+
+
+def flip_segms_horz(segms, height, width):
   """Left/right flip each mask in a list of masks."""
-
-  def _flip_poly(poly, width):
-    flipped_poly = np.array(poly)
-    flipped_poly[0::2] = width - np.array(poly[0::2]) - 1
-    return flipped_poly.tolist()
-
-  def _flip_rle(rle, height, width):
-    if 'counts' in rle and type(rle['counts']) == list:
-      # Magic RLE format handling painfully discovered by looking at the
-      # COCO API showAnns function.
-      rle = mask_util.frPyObjects([rle], height, width)
-    mask = mask_util.decode(rle)
-    mask = mask[:, ::-1, :]
-    rle = mask_util.encode(np.array(mask, order='F', dtype=np.uint8))
-    return rle
-
   flipped_segms = []
   for segm in segms:
     if type(segm) == list:
       # Polygon format
-      flipped_segms.append([_flip_poly(poly, width) for poly in segm])
+      flipped_segms.append([_flip_poly_horz(poly, width) for poly in segm])
     else:
       # RLE format
       assert type(segm) == dict
-      flipped_segms.append(_flip_rle(segm, height, width))
+      flipped_segms.append(_flip_rle_horz(segm, height, width))
+  return flipped_segms
+
+
+def _flip_poly_vert(poly, height):
+  flipped_poly = np.array(poly)
+  flipped_poly[2::4] = height - np.array(poly[2::4]) - 1
+  return flipped_poly.tolist()
+
+
+def _flip_rle_vert(rle, height, width):
+  if 'counts' in rle and type(rle['counts']) == list:
+    # Magic RLE format handling painfully discovered by looking at the
+    # COCO API showAnns function.
+    rle = mask_util.frPyObjects([rle], height, width)
+  mask = mask_util.decode(rle)
+  mask = mask[::-1, :, :]
+  rle = mask_util.encode(np.array(mask, order='F', dtype=np.uint8))
+  return rle
+
+
+def flip_segms_vert(segms, height, width):
+  """Left/right flip each mask in a list of masks."""
+  flipped_segms = []
+  for segm in segms:
+    if type(segm) == list:
+      # Polygon format
+      flipped_segms.append([_flip_poly_vert(poly, height) for poly in segm])
+    else:
+      # RLE format
+      assert type(segm) == dict
+      flipped_segms.append(_flip_rle_vert(segm, height, width))
   return flipped_segms
 
 

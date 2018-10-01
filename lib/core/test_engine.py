@@ -329,6 +329,14 @@ def initialize_model_from_cfg(args, gpu_id=0):
         load_name = args.load_ckpt
         logger.info("loading checkpoint %s", load_name)
         checkpoint = torch.load(load_name, map_location=lambda storage, loc: storage)
+        print("Box_Outs", model.Box_Outs)
+        print("Maxk_Outs", model.Mask_Outs)
+        for k, v in checkpoint['model'].items():
+            if "Box_Outs" in k:
+                print(k, v.shape)
+            if "Mask_Outs" in k:
+                print(k, v.shape)
+
         net_utils.load_ckpt(model, checkpoint['model'])
 
     if args.load_detectron:

@@ -48,7 +48,10 @@ def combined_roidb_for_training(dataset_names, proposal_files):
         )
         if cfg.TRAIN.USE_FLIPPED:
             logger.info('Appending horizontally-flipped training examples...')
-            extend_with_flipped_entries(roidb, ds)
+            extend_with_flipped_entries(roidb, ds, type="horz")
+        if cfg.TRAIN.USE_VERT_FLIPPED:
+            logger.info('Appending vertically-flipped training examples...')
+            extend_with_flipped_entries(roidb, ds, type="vert")
         logger.info('Loaded dataset: {:s}'.format(ds.name))
         return roidb
 
@@ -81,7 +84,7 @@ def combined_roidb_for_training(dataset_names, proposal_files):
     return roidb, ratio_list, ratio_index
 
 
-def extend_with_flipped_entries(roidb, dataset):
+def extend_with_flipped_entries(roidb, dataset, type="horz"):
     """Flip each entry in the given roidb and return a new roidb that is the
     concatenation of the original roidb and the flipped entries.
 
@@ -89,6 +92,12 @@ def extend_with_flipped_entries(roidb, dataset):
     ground truth boxes and object proposals) are horizontally flipped.
     """
     flipped_roidb = []
+    if type == "horz":
+        flip_segms = segm_utils.flip_segms_horz
+    elif type == "vert":
+        flip_segms = segm_utils.flip_segms_vert
+    else:
+        raise ValueError(f"Type '{horz}' is invalid")
     for entry in roidb:
         width = entry['width']
         boxes = entry['boxes'].copy()
@@ -103,15 +112,18 @@ def extend_with_flipped_entries(roidb, dataset):
             if k not in dont_copy:
                 flipped_entry[k] = v
         flipped_entry['boxes'] = boxes
-        flipped_entry['segms'] = segm_utils.flip_segms(
+        flipped_entry['segms'] = flip_segms(
             entry['segms'], entry['height'], entry['width']
         )
         if dataset.keypoints is not None:
+            if type == "vert":
+                raise ValueError("Cannot vertically flip keypoints yet.")
             flipped_entry['gt_keypoints'] = keypoint_utils.flip_keypoints(
                 dataset.keypoints, dataset.keypoint_flip_map,
                 entry['gt_keypoints'], entry['width']
             )
         flipped_entry['flipped'] = True
+        flipped_entry['flip_dirn'] = type
         flipped_roidb.append(flipped_entry)
     roidb.extend(flipped_roidb)
 

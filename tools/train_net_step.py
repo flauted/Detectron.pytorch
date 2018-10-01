@@ -25,7 +25,7 @@ from core.config import cfg, cfg_from_file, cfg_from_list, assert_and_infer_cfg
 from datasets.roidb import combined_roidb_for_training
 from roi_data.loader import RoiDataLoader, MinibatchSampler, BatchSampler, collate_minibatch
 from modeling.model_builder import Generalized_RCNN
-from utils.detectron_weight_helper import load_detectron_weight
+from utils.detectron_weight_helper import load_detectron_weight, xfer_skip
 from utils.logging import setup_logging
 from utils.timer import Timer
 from utils.training_stats import TrainingStats
@@ -109,8 +109,17 @@ def parse_args():
         '--load_detectron', help='path to the detectron weight pickle file')
 
     parser.add_argument(
+        '--xfer',
+        help='transfer learning',
+        action='store_true')
+
+    parser.add_argument(
         '--use_tfboard', help='Use tensorflow tensorboard to log training info',
         action='store_true')
+
+    parser.add_argument(
+        '--run_name', help='Override default run name (default is datetime)',
+        default=None, type=str)
 
     return parser.parse_args()
 
@@ -126,6 +135,10 @@ def save_ckpt(output_dir, args, step, train_size, model, optimizer):
     if isinstance(model, mynn.DataParallel):
         model = model.module
     model_state_dict = model.state_dict()
+    for k, v in model_state_dict.items():
+        if "Mask_Outs" or "Box_Outs" in k:
+            print(k, v.shape)
+    print(model)
     torch.save({
         'step': step,
         'train_size': train_size,
@@ -150,7 +163,10 @@ def main():
     else:
         raise ValueError("Need Cuda device to run !")
 
-    if args.dataset == "coco2017":
+    if args.dataset == "isic2018":
+        cfg.TRAIN.DATASETS = ("isic_2018_train",)
+        cfg.MODEL.NUM_CLASSES = 2
+    elif args.dataset == "coco2017":
         cfg.TRAIN.DATASETS = ('coco_2017_train',)
         cfg.MODEL.NUM_CLASSES = 81
     elif args.dataset == "keypoints_coco2017":
@@ -158,11 +174,9 @@ def main():
         cfg.MODEL.NUM_CLASSES = 2
     else:
         raise ValueError("Unexpected args.dataset: {}".format(args.dataset))
-
     cfg_from_file(args.cfg_file)
     if args.set_cfgs is not None:
         cfg_from_list(args.set_cfgs)
-
     ### Adaptively adjust some configs ###
     original_batch_size = cfg.NUM_GPUS * cfg.TRAIN.IMS_PER_BATCH
     original_ims_per_batch = cfg.TRAIN.IMS_PER_BATCH
@@ -199,7 +213,6 @@ def main():
           '    SOLVER.STEPS: {} --> {}\n'
           '    SOLVER.MAX_ITER: {} --> {}'.format(old_solver_steps, cfg.SOLVER.STEPS,
                                                   old_max_iter, cfg.SOLVER.MAX_ITER))
-
     # Scale FPN rpn_proposals collect size (post_nms_topN) in `collect` function
     # of `collect_and_distribute_fpn_rpn_proposals.py`
     #
@@ -223,7 +236,6 @@ def main():
     assert_and_infer_cfg()
 
     timers = defaultdict(Timer)
-
     ### Dataset ###
     timers['roidb'].tic()
     roidb, ratio_list, ratio_index = combined_roidb_for_training(
@@ -306,6 +318,7 @@ def main():
     elif cfg.SOLVER.TYPE == "Adam":
         optimizer = torch.optim.Adam(params)
 
+
     ### Load checkpoint
     if args.load_ckpt:
         load_name = args.load_ckpt
@@ -331,7 +344,8 @@ def main():
 
     if args.load_detectron:  #TODO resume for detectron weights (load sgd momentum values)
         logging.info("loading Detectron weights %s", args.load_detectron)
-        load_detectron_weight(maskRCNN, args.load_detectron)
+        load_detectron_weight(maskRCNN, args.load_detectron, xfer=args.xfer,
+                              freeze=(args.xfer and cfg.TRAIN.FREEZE_XFER))
 
     lr = optimizer.param_groups[0]['lr']  # lr of non-bias parameters, for commmand line outputs.
 
@@ -339,7 +353,7 @@ def main():
                                  minibatch=True)
 
     ### Training Setups ###
-    args.run_name = misc_utils.get_run_name() + '_step'
+    args.run_name = misc_utils.get_run_name(run_name=args.run_name) + '_step'
     output_dir = misc_utils.get_output_dir(args, args.run_name)
     args.cfg_filename = os.path.basename(args.cfg_file)
 

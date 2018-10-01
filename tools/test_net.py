@@ -78,7 +78,7 @@ if __name__ == '__main__':
             os.path.dirname(os.path.dirname(ckpt_path)), 'test')
         logger.info('Automatically set output directory to %s', args.output_dir)
     if not os.path.exists(args.output_dir):
-        os.makedirs(args.output_dir)
+        os.makedirs(args.output_dir, exist_ok=True)
 
     cfg.VIS = args.vis
 
@@ -87,7 +87,10 @@ if __name__ == '__main__':
     if args.set_cfgs is not None:
         merge_cfg_from_list(args.set_cfgs)
 
-    if args.dataset == "coco2017":
+    if args.dataset == "isic2018":
+        cfg.TEST.DATASETS = ('isic_2018_val',)
+        cfg.MODEL.NUM_CLASSES = 2
+    elif args.dataset == "coco2017":
         cfg.TEST.DATASETS = ('coco_2017_val',)
         cfg.MODEL.NUM_CLASSES = 81
     elif args.dataset == "keypoints_coco2017":

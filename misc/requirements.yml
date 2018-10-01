@@ -1,0 +1,13 @@
+# all the requirements to build the package.
+# can be installed with
+#   conda env update -f requirements.yml
+
+name: root
+channels:
+  - defaults
+  - pytorch
+dependencies:
+  - python=3.6.5
+  - pip
+  - pytorch
+  - cython

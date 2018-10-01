@@ -10,8 +10,10 @@ import torch
 from core.config import cfg
 
 
-def get_run_name():
+def get_run_name(run_name=None):
     """ A unique name for each run """
+    if run_name:
+        return run_name
     return datetime.now().strftime(
         '%b%d-%H-%M-%S') + '_' + socket.gethostname()
 

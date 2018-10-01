@@ -27,6 +27,7 @@ class mask_rcnn_outputs(nn.Module):
         if cfg.MRCNN.USE_FC_OUTPUT:
             # Predict masks with a fully connected layer
             self.classify = nn.Linear(dim_in, n_classes * cfg.MRCNN.RESOLUTION**2)
+
         else:
             # Predict mask using Conv
             self.classify = nn.Conv2d(dim_in, n_classes, 1, 1, 0)

@@ -71,6 +71,9 @@ __C.TRAIN.BG_THRESH_LO = 0.0
 # Use horizontally-flipped images during training?
 __C.TRAIN.USE_FLIPPED = True
 
+# Use vertically-flipped images during training?
+__C.TRAIN.USE_VERT_FLIPPED = True
+
 # Overlap required between a ROI and ground-truth box in order for that ROI to
 # be used as a bounding-box regression training example
 __C.TRAIN.BBOX_THRESH = 0.5
@@ -107,6 +110,9 @@ __C.TRAIN.ASPECT_GROUPING = True
 __C.TRAIN.ASPECT_CROPPING = False
 __C.TRAIN.ASPECT_HI = 2
 __C.TRAIN.ASPECT_LO = 0.5
+
+
+__C.TRAIN.FREEZE_XFER = True
 
 # ---------------------------------------------------------------------------- #
 # RPN training options

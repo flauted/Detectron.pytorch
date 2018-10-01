@@ -6,7 +6,19 @@ import re
 import torch
 
 
-def load_detectron_weight(net, detectron_weight_file):
+def xfer_skip(name):
+    return name.startswith("cls_score") \
+           or name.startswith("mask_fcn_logits") \
+           or name.startswith("bbox_pred")
+
+
+def load_detectron_weight(net, detectron_weight_file, xfer=False, freeze=False):
+    if xfer and freeze:
+        print("Freezing weights")
+    elif freeze:
+        raise ValueError("Freeze only means something with xfer")
+    elif xfer:
+        print("Not freezing weights")
     name_mapping, orphan_in_detectron = net.detectron_weight_mapping
 
     with open(detectron_weight_file, 'rb') as fp:
@@ -18,7 +30,11 @@ def load_detectron_weight(net, detectron_weight_file):
     for p_name, p_tensor in params.items():
         d_name = name_mapping[p_name]
         if isinstance(d_name, str):  # maybe str, None or True
-            p_tensor.copy_(torch.Tensor(src_blobs[d_name]))
+            # i.e., copy unless you're doing xfer and the name is blacklisted
+            if not (xfer and xfer_skip(d_name)):
+                p_tensor.copy_(torch.Tensor(src_blobs[d_name]))
+                if xfer and freeze:
+                    p_tensor.requires_grad_ = False
 
 
 def resnet_weights_name_pattern():
